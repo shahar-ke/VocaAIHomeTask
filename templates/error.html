@@ -1,0 +1,9 @@
+<!doctype html>
+<p>
+    {% if error_msg %}
+        <h1>{{error_msg}}</h1>
+    {% endif %}
+</p>
+<p>
+    <img src="{{ url_for('display_error')}}">
+</p>
