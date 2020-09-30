@@ -28,13 +28,19 @@ def _extract_best_face(groups, face_map):
 def _detect_faces(face_client):
     face_map: Dict[str, Face] = dict()
     upload_folder = app.config['UPLOAD_FOLDER']
+    errors = list()
     for file in os.listdir(upload_folder):
         file_path = os.path.join(upload_folder, file)
-        with open(file_path, 'rb') as image_stream:
-            face_list = face_client.face.detect_with_stream(image_stream, return_face_id=True)
-            for client_face in face_list:
-                face_map[client_face.face_id] = Face(face_client_obj=client_face, file=file)
-    return face_map
+        try:
+            with open(file_path, 'rb') as image_stream:
+                face_list = face_client.face.detect_with_stream(image_stream, return_face_id=True)
+                for client_face in face_list:
+                    face_map[client_face.face_id] = Face(face_client_obj=client_face, file=file)
+        except Exception as e:
+            logger.exceptiopn(e)
+            logger.error('err msg')
+            errors.append(file_path)
+    return face_map, errors
 
 
 @best_image_view.route('/get_best', methods=['GET'])
@@ -45,8 +51,8 @@ def get_best():
     except Exception as e:
         return render_template('error.html', error_msg=f'could not init face client: {str(e)}'), \
                status.HTTP_500_INTERNAL_SERVER_ERROR
-    face_map = _detect_faces(face_client)
     try:
+        face_map, errors = _detect_faces(face_client)
         face_group = face_client.face.group(face_map.keys())
     except Exception as e:
         return render_template('error.html', error_msg=f'could not group faces: {str(e)}'), \
@@ -58,4 +64,5 @@ def get_best():
     best_face: Face = _extract_best_face(groups, face_map)
     return render_template('upload.html',
                            best_image=best_face.file,
-                           rectangle_coordinates=best_face.rectangle_coord), status.HTTP_200_OK
+                           rectangle_coordinates=best_face.rectangle_coord,
+                           errors=errors), status.HTTP_200_OK
